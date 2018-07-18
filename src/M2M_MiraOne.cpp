@@ -36,7 +36,7 @@ MiraOne::MiraOne(Stream& stream, uint8_t resetPin, MiraAntenna antenna)
 //
 // Infrastructure
 //
-void MiraOne::begin(uint16_t networkId, const char* aesKey, const char* name, bool root)
+void MiraOne::begin(bool root, const char* name, uint16_t networkId, const char* aesKey)
 {
 	_networkId = networkId;
 	_aesKey = aesKey;

@@ -65,7 +65,7 @@ public:
 	MiraOne(Stream& port, uint8_t resetPin = NOT_A_PIN, MiraAntenna antenna = MiraAntenna::internal);
 
 	// Infrastructure
-	void begin(uint16_t networkId, const char* aesKey, const char* name, bool root);
+	void begin(bool root, const char* name, uint16_t networkId = MIRA_NETWORK_ID, const char* aesKey = MIRA_AES_KEY);
 	void update();
 	uint8_t getNextMessageId();
 	IEEE_EUI64 getAddress();
