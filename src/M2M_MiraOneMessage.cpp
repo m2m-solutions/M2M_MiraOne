@@ -245,64 +245,64 @@ void MiraOneMessage::setMessageIndex(uint8_t index)
 //
 // Message handling
 //
-bool MiraOneMessage::write(Stream* stream, uint8_t messageIndex)
+bool MiraOneMessage::write(Stream* stream, uint8_t messageIndex, Logger* logger)
 {
-	LOG_TRACE_START(F("Write message: "));
+	MOM_LOG_TRACE_START(F("Write message: "));
 	uint16_t temp = 0;
 	_messageIndex = messageIndex;
 	_crc = 0;
-	writeSTC(stream);
-	writeEscapedData(stream, _messageHeader, _crc);
-	writeEscapedData(stream, _messageType, _crc);
-	writeEscapedData(stream, _messageIndex, _crc);
-	writeEscapedData(stream, _dataSize, _crc);
+	writeSTC(stream, logger);
+	writeEscapedData(stream, _messageHeader, _crc, logger);
+	writeEscapedData(stream, _messageType, _crc, logger);
+	writeEscapedData(stream, _messageIndex, _crc, logger);
+	writeEscapedData(stream, _dataSize, _crc, logger);
 	if (hasAddress())
 	{
-		writeEscapedData(stream, _address[0], _crc);
+		writeEscapedData(stream, _address[0], _crc, logger);
 		if (getAddressType() == MIRA_ADDRESS_TYPE_EUI64)
 		{
 			for (int i = 1; i < 9; i++)
 			{
-				writeEscapedData(stream, _address[i], _crc);
+				writeEscapedData(stream, _address[i], _crc, logger);
 			}
 		}
 	}
 	for (int i = 0; i < _dataSize; i++)
 	{
-		writeEscapedData(stream, _data[i], _crc);
+		writeEscapedData(stream, _data[i], _crc, logger);
 	}
-	writeEscapedData(stream, static_cast<uint8_t>(_crc >> 8), temp);
-	writeEscapedData(stream, static_cast<uint8_t>(_crc & 0xff), temp);
+	writeEscapedData(stream, static_cast<uint8_t>(_crc >> 8), temp, logger);
+	writeEscapedData(stream, static_cast<uint8_t>(_crc & 0xff), temp, logger);
 	stream->flush();
-	LOG_TRACE_END(F("[end]"));
+	MOM_LOG_TRACE_END(F("[end]"));
 	return true;
 }
 
-bool MiraOneMessage::writeSTC(Stream* stream)
+void MiraOneMessage::writeSTC(Stream* stream, Logger* logger)
 {
-	LOG_TRACE_PART(F("0x%02x "), (uint8_t)MIRA_CHAR_STC);
+	MOM_LOG_TRACE_PART(F("0x%02x "), (uint8_t)MIRA_CHAR_STC);
 	stream->print((char)MIRA_CHAR_STC);
 }
 
-bool MiraOneMessage::writeEscapedData(Stream* stream, uint8_t data, uint16_t& crc)
+void MiraOneMessage::writeEscapedData(Stream* stream, uint8_t data, uint16_t& crc, Logger* logger)
 {
 	addToCrc(crc, data);
 	switch (data)
 	{
 		case MIRA_CHAR_STC:
 		case MIRA_CHAR_ESC:
-			LOG_TRACE_PART(F("0x%02x 0x0%2x"), (char)MIRA_CHAR_ESC, (char)~data);
+			MOM_LOG_TRACE_PART(F("0x%02x 0x0%2x"), (char)MIRA_CHAR_ESC, (char)~data);
 			stream->print((char)MIRA_CHAR_ESC);
 			stream->print((char)~data);
 			break;
 		default:
-			LOG_TRACE_PART(F("0x%02x "), (uint8_t)data);
+			MOM_LOG_TRACE_PART(F("0x%02x "), (uint8_t)data);
 			stream->print((char)data);
 			break;
 	}
 }
 
-bool MiraOneMessage::read(Stream* stream)
+bool MiraOneMessage::read(Stream* stream, Logger* logger)
 {
 
 	int16_t index = -1;
@@ -313,7 +313,7 @@ bool MiraOneMessage::read(Stream* stream)
 	uint16_t crc = 0;
 	uint32_t timeout = millis();
 
-	LOG_TRACE_START(F("Reading message: "));
+	MOM_LOG_TRACE_START(F("Reading message: "));
 	while (true)
 	{
 		while (!stream->available())
@@ -321,8 +321,8 @@ bool MiraOneMessage::read(Stream* stream)
 			//LOG_TRACE_PART(F("."));
 			if (millis() - timeout > MIRA_SERIAL_TIMEOUT)
 			{
-				LOG_TRACE_END("");
-				LOG_ERROR(F("Timout waiting for data"));
+				MOM_LOG_TRACE_END("");
+				MOM_LOG_ERROR(F("Timout waiting for data"));
 				return false;
 			}
 			delay(2);
@@ -331,17 +331,15 @@ bool MiraOneMessage::read(Stream* stream)
 		ch = stream->read();
 		if (ch == -1)
 		{
-			LOG_TRACE_END(F(" - Read failed"));
+			MOM_LOG_TRACE_END(F(" - Read failed"));
 			return NULL;
 		}
-		//LOG_TRACE_PART(F("0x%02x "), (uint8_t)ch);
 		if (ch == MIRA_CHAR_ESC)		// Unescape
 		{
 			ch = stream->read();
-			//LOG_TRACE_PART(F("0x%02x "), (uint8_t)ch);
 			if (ch == -1)
 			{
-				LOG_TRACE_END(F(" - Read failed"));
+				MOM_LOG_TRACE_END(F(" - Read failed"));
 				// Failed to read pending data, just return
 				return NULL;
 			}
@@ -418,11 +416,11 @@ bool MiraOneMessage::read(Stream* stream)
 				crcCount++;
 				if (_crc == crc)
 				{
-					LOG_TRACE_END(F("(CRC OK)"));
+					MOM_LOG_TRACE_END(F("(CRC OK)"));
 				}
 				else
 				{
-					LOG_TRACE_END(F("(CRC FAIL 0x%04x, 0x%04x)"), _crc, crc);
+					MOM_LOG_TRACE_END(F("(CRC FAIL 0x%04x, 0x%04x)"), _crc, crc);
 				}
 				return _crc == crc;
 		}
@@ -430,77 +428,77 @@ bool MiraOneMessage::read(Stream* stream)
 	return false;
 }
 
-void MiraOneMessage::dumpToLog()
+void MiraOneMessage::dumpToLog(Logger* logger)
 {
-	LOG_TRACE(F("======== Mira message ========="));
-	LOG_TRACE_START(F("Message header  : 0x%02x (Response: "), _messageHeader);
+	MOM_LOG_TRACE(F("======== Mira message ========="));
+	MOM_LOG_TRACE_START(F("Message header  : 0x%02x (Response: "), _messageHeader);
 	if (isResponse())
 	{
-		LOG_TRACE_PART(F("True"));
+		MOM_LOG_TRACE_PART(F("True"));
 	}
 	else
 	{
-		LOG_TRACE_PART(F("False"));
+		MOM_LOG_TRACE_PART(F("False"));
 	}
-	LOG_TRACE_PART(F(", Address flag: "));
+	MOM_LOG_TRACE_PART(F(", Address flag: "));
 	if (hasAddress())
 	{
-		LOG_TRACE_PART(F("True"));
+		MOM_LOG_TRACE_PART(F("True"));
 	}
 	else
 	{
-		LOG_TRACE_PART(F("False"));
+		MOM_LOG_TRACE_PART(F("False"));
 	}
-	LOG_TRACE_PART(F(", Message class: "));
+	MOM_LOG_TRACE_PART(F(", Message class: "));
 	switch (getMessageClass())
 	{
 		case 0x01:
-			LOG_TRACE_END(F("ACK)"));
+			MOM_LOG_TRACE_END(F("ACK)"));
 			break;
 		case 0x02:
-			LOG_TRACE_END(F("ERROR)"));
+			MOM_LOG_TRACE_END(F("ERROR)"));
 			break;
 		case 0x03:
-			LOG_TRACE_END(F("DATA_MESSAGES)"));
+			MOM_LOG_TRACE_END(F("DATA_MESSAGES)"));
 			break;
 		case 0x04:
-			LOG_TRACE_END(F("FWUP_MESSAGES)"));
+			MOM_LOG_TRACE_END(F("FWUP_MESSAGES)"));
 			break;
 		case 0x07:
-			LOG_TRACE_END(F("NETSTAT_MESSAGES)"));
+			MOM_LOG_TRACE_END(F("NETSTAT_MESSAGES)"));
 			break;
 		case 0x08:
-			LOG_TRACE_END(F("SETTINGS_MESSAGES)"));
+			MOM_LOG_TRACE_END(F("SETTINGS_MESSAGES)"));
 			break;
 		default:
-			LOG_TRACE_END(F("Unknown: 0x%02x)"), _messageType);
+			MOM_LOG_TRACE_END(F("Unknown: 0x%02x)"), _messageType);
 	}
-	LOG_TRACE_START(F("Message type    : 0x%02x ("), _messageType);
+	MOM_LOG_TRACE_START(F("Message type    : 0x%02x ("), _messageType);
 	switch (getMessageClass())
 	{
 		case 0x03:	// DATA_MESSAGES
 			switch(_messageType)
 			{
 				case 0x01:
-					LOG_TRACE_END(F("ACK)"));
+					MOM_LOG_TRACE_END(F("ACK)"));
 					break;
 				case 0x02:
-					LOG_TRACE_END(F("ERROR)"));
+					MOM_LOG_TRACE_END(F("ERROR)"));
 					break;			
 				case 0x03:
-					LOG_TRACE_END(F("DATA_SEND)"));
+					MOM_LOG_TRACE_END(F("DATA_SEND)"));
 					break;
 				case 0x04:
-					LOG_TRACE_END(F("DATA_RECEIVED)"));
+					MOM_LOG_TRACE_END(F("DATA_RECEIVED)"));
 					break;
 				case 0x05:
-					LOG_TRACE_END(F("SLEEPY_DATA_RECEIVED)"));
+					MOM_LOG_TRACE_END(F("SLEEPY_DATA_RECEIVED)"));
 					break;
 				case 0x07:
-					LOG_TRACE_END(F("SLEEPY_DATA_MAIL)"));
+					MOM_LOG_TRACE_END(F("SLEEPY_DATA_MAIL)"));
 					break;
 				default:
-					LOG_TRACE_END(F("Unknown: 0x%02x)"), _messageType);
+					MOM_LOG_TRACE_END(F("Unknown: 0x%02x)"), _messageType);
 					break;				
 			}
 			break;
@@ -508,37 +506,37 @@ void MiraOneMessage::dumpToLog()
 			switch(_messageType)
 			{
 				case 0x01:
-					LOG_TRACE_END(F("ACK)"));
+					MOM_LOG_TRACE_END(F("ACK)"));
 					break;
 				case 0x02:
-					LOG_TRACE_END(F("ERROR)"));
+					MOM_LOG_TRACE_END(F("ERROR)"));
 					break;						
 				case 0x03:
-					LOG_TRACE_END(F("FWUP_OPEN_SESSION)"));
+					MOM_LOG_TRACE_END(F("FWUP_OPEN_SESSION)"));
 					break;
 				case 0x04:
-					LOG_TRACE_END(F("FWUP_CLOSE_SESSION)"));
+					MOM_LOG_TRACE_END(F("FWUP_CLOSE_SESSION)"));
 					break;
 				case 0x05:
-					LOG_TRACE_END(F("FWUP_SUBSCRIBE)"));
+					MOM_LOG_TRACE_END(F("FWUP_SUBSCRIBE)"));
 					break;
 				case 0x06:
-					LOG_TRACE_END(F("FWUP_STATUS_REQUEST)"));
+					MOM_LOG_TRACE_END(F("FWUP_STATUS_REQUEST)"));
 					break;
 				case 0x07:
-					LOG_TRACE_END(F("FWUP_STATUS)"));
+					MOM_LOG_TRACE_END(F("FWUP_STATUS)"));
 					break;
 				case 0x08:
-					LOG_TRACE_END(F("FWUP_DATA_REQUEST)"));
+					MOM_LOG_TRACE_END(F("FWUP_DATA_REQUEST)"));
 					break;
 				case 0x09:
-					LOG_TRACE_END(F("FWUP_DATA)"));
+					MOM_LOG_TRACE_END(F("FWUP_DATA)"));
 					break;
 				case 0x0D:
-					LOG_TRACE_END(F("FWUP_ROLLBACK_REQUEST)"));
+					MOM_LOG_TRACE_END(F("FWUP_ROLLBACK_REQUEST)"));
 					break;
 				default:
-					LOG_TRACE_END(F("Unknown: 0x%02x)"), _messageType);
+					MOM_LOG_TRACE_END(F("Unknown: 0x%02x)"), _messageType);
 					break;				
 			}
 			break;
@@ -546,25 +544,25 @@ void MiraOneMessage::dumpToLog()
 			switch(_messageType)
 			{
 				case 0x01:
-					LOG_TRACE_END(F("ACK)"));
+					MOM_LOG_TRACE_END(F("ACK)"));
 					break;
 				case 0x02:
-					LOG_TRACE_END(F("ERROR)"));
+					MOM_LOG_TRACE_END(F("ERROR)"));
 					break;						
 				case 0x03:
-					LOG_TRACE_END(F("NETWORK_GET_STATISTICS)"));
+					MOM_LOG_TRACE_END(F("NETWORK_GET_STATISTICS)"));
 					break;
 				case 0x04:
-					LOG_TRACE_END(F("NETWORK_STATISTICS)"));
+					MOM_LOG_TRACE_END(F("NETWORK_STATISTICS)"));
 					break;
 				case 0x09:
-					LOG_TRACE_END(F("NETWORK_PING)"));
+					MOM_LOG_TRACE_END(F("NETWORK_PING)"));
 					break;
 				case 0x0A:
-					LOG_TRACE_END(F("NETWORK_PONG)"));
+					MOM_LOG_TRACE_END(F("NETWORK_PONG)"));
 					break;
 				default:
-					LOG_TRACE_END(F("Unknown: 0x%02x)"), _messageType);
+					MOM_LOG_TRACE_END(F("Unknown: 0x%02x)"), _messageType);
 					break;
 			}		
 			break;
@@ -572,57 +570,57 @@ void MiraOneMessage::dumpToLog()
 			switch(_messageType)
 			{
 				case 0x01:
-					LOG_TRACE_END(F("ACK)"));
+					MOM_LOG_TRACE_END(F("ACK)"));
 					break;
 				case 0x02:
-					LOG_TRACE_END(F("ERROR)"));
+					MOM_LOG_TRACE_END(F("ERROR)"));
 					break;						
 				case 0x03:
-					LOG_TRACE_END(F("SETTINGS_SET_CREDENTIALS)"));
+					MOM_LOG_TRACE_END(F("SETTINGS_SET_CREDENTIALS)"));
 					break;
 				case 0x04:
-					LOG_TRACE_END(F("SETTINGS_BECOME_ROOT)"));
+					MOM_LOG_TRACE_END(F("SETTINGS_BECOME_ROOT)"));
 					break;
 				case 0x05:
-					LOG_TRACE_END(F("SETTINGS_SET_ANTENNA)"));
+					MOM_LOG_TRACE_END(F("SETTINGS_SET_ANTENNA)"));
 					break;
 				case 0x0A:
-					LOG_TRACE_END(F("SETTINGS_COMMIT)"));
+					MOM_LOG_TRACE_END(F("SETTINGS_COMMIT)"));
 					break;
 				default:
-					LOG_TRACE_END(F("Unknown: 0x%02x)"), _messageType);
+					MOM_LOG_TRACE_END(F("Unknown: 0x%02x)"), _messageType);
 					break;				
 			}
 			break;
 		default:
-			LOG_TRACE_END(F("Unknown: 0x%02x)"), _messageType);
+			MOM_LOG_TRACE_END(F("Unknown: 0x%02x)"), _messageType);
 			break;
 	}
 	
-	LOG_TRACE(F("Message index   : 0x%02x"), _messageIndex);
-	LOG_TRACE(F("Data size       : %u bytes"), _dataSize);
+	MOM_LOG_TRACE(F("Message index   : 0x%02x"), _messageIndex);
+	MOM_LOG_TRACE(F("Data size       : %u bytes"), _dataSize);
 	if (hasAddress())
 	{
-		LOG_TRACE_START(F("Addressing mode : 0x%02x "), getAddressingMode());
-		LOG_TRACE_END(F(", Address type: 0x%02x"), getAddressType());
+		MOM_LOG_TRACE_START(F("Addressing mode : 0x%02x "), getAddressingMode());
+		MOM_LOG_TRACE_END(F(", Address type: 0x%02x"), getAddressType());
 		if (getAddressType() == MIRA_ADDRESS_TYPE_EUI64)
 		{
-			LOG_TRACE_START(F("Address         : "));
+			MOM_LOG_TRACE_START(F("Address         : "));
 			for (int i = 1; i < 9; i++)
 			{
-				LOG_TRACE_PART(F("%02x"), _address[i]);
+				MOM_LOG_TRACE_PART(F("%02x"), _address[i]);
 			}
-			LOG_TRACE_END("");
+			MOM_LOG_TRACE_END("");
 		}
 	}
 	if (_dataSize > 0)
 	{
-		LOG_TRACE_START(F("Data            : "));
+		MOM_LOG_TRACE_START(F("Data            : "));
 		for (int i = 0; i < getDataSize(); i++)
 		{
-			LOG_TRACE_PART(F("0x%02x "), (uint8_t)_data[i]);
+			MOM_LOG_TRACE_PART(F("0x%02x "), (uint8_t)_data[i]);
 		}
-		LOG_TRACE_END("");
+		MOM_LOG_TRACE_END("");
 	}
 	/*
 	if (getMessageClass() == 0x07 && _messageType == 0x04)
@@ -654,7 +652,7 @@ void MiraOneMessage::dumpToLog()
 		Log.traceEnd("");	
 	}
 	*/
-	LOG_TRACE(F("==============================="));
+	MOM_LOG_TRACE(F("==============================="));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////

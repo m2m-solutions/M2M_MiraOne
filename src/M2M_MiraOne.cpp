@@ -15,7 +15,6 @@
 // Includes
 //
 #include "M2M_MiraOne.h"
-#include "M2M_Logger.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -38,10 +37,10 @@ MiraOne::MiraOne(Stream& stream, uint8_t resetPin, MiraAntenna antenna)
 //
 void MiraOne::begin(bool root, const char* name, uint16_t networkId, const char* aesKey)
 {
+	_logger->info("WTF....");
 	_networkId = networkId;
 	_aesKey = aesKey;
 	_name = name;
-	getEUI64Info(&_address);
 	setNetworkCredentials(networkId, aesKey);
 	setAntenna(_antenna);
 	if (root)
@@ -63,21 +62,32 @@ uint8_t MiraOne::getNextMessageId()
 
 void MiraOne::flush()
 {
-	LOG_TRACE_START(F("Flush "));
+	MO_LOG_TRACE_START(F("Flush "));
 	while (_stream->available())
 	{
 		char ch = _stream->read();
-		LOG_TRACE_PART("%c", ch);
+		MO_LOG_TRACE_PART("%c", ch);
 	}
-	LOG_TRACE_END("");
+	MO_LOG_TRACE_END("");
+	callWatchdog();
 }
 
 void MiraOne::reset()
 {
-	LOG_TRACE(F("Resetting Mira module"));
+	MO_LOG_TRACE(F("Resetting Mira module"));
 	digitalWrite(_resetPin, LOW);
 	delay(200);
 	digitalWrite(_resetPin, HIGH);
+	callWatchdog();
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Logging
+//
+void MiraOne::setLogger(Logger* logger)
+{
+	_logger = logger;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -86,23 +96,27 @@ void MiraOne::reset()
 //
 bool MiraOne::setNetworkCredentials(const uint16_t networkId, const char* aesKey)
 {
-	LOG_TRACE(F("setNetworkCredentials()"));
+	MO_LOG_TRACE(F("setNetworkCredentials()"));
 	MiraOneMessage* message = MiraOneMessage::getSetCredentialsMessage(networkId, aesKey);
 	if (!send(message))
 	{
 		delete message;
-		LOG_ERROR(F("setNetworkCredentials: Send failure"));
+		MO_LOG_ERROR(F("setNetworkCredentials: Send failure"));
+		callWatchdog();
 		return false;
 	}
+	callWatchdog();
 	delete message;
-	LOG_TRACE(F("Waiting for response"));
+	MO_LOG_TRACE(F("Waiting for response"));
 	MiraOneMessage* response = getNextMessage();
 	if (response == nullptr)
 	{
 		delete response;
-		LOG_ERROR(F("setNetworkCredentials: Receive failure"));
+		MO_LOG_ERROR(F("setNetworkCredentials: Receive failure"));
+		callWatchdog();
 		return false;
 	}
+	callWatchdog();
 	// Check result
 	delete response;
 	return true;
@@ -114,19 +128,23 @@ bool MiraOne::becomeNetworkRoot()
 	if (!send(message))
 	{
 		delete message;
-		LOG_ERROR(F("becomeNetworkRoot: Send failure"));
+		MO_LOG_ERROR(F("becomeNetworkRoot: Send failure"));
+		callWatchdog();
 		return false;
 	}
 	delete message;
+	callWatchdog();
 	MiraOneMessage* response = getNextMessage();
 	if (response == nullptr)
 	{
 		delete response;
-		LOG_ERROR(F("becomeNetworkRoot: Receive failure"));
+		MO_LOG_ERROR(F("becomeNetworkRoot: Receive failure"));
+		callWatchdog();
 		return false;
 	}
 	// Check status
 	delete response;
+	callWatchdog();
 	return true;
 }
 
@@ -136,20 +154,24 @@ bool MiraOne::setName(const char* name)
 	if (!send(message))
 	{
 		delete message;
-		LOG_ERROR(F("setName: Send failure"));
+		MO_LOG_ERROR(F("setName: Send failure"));
+		callWatchdog();
 		return false;
 	}
 	delete message;
-	LOG_TRACE(F("Waiting for response"));
+	callWatchdog();
+	MO_LOG_TRACE(F("Waiting for response"));
 	MiraOneMessage* response = getNextMessage();
 	if (response == nullptr)
 	{
 		delete response;
-		LOG_ERROR(F("setName: Receive failure"));
+		MO_LOG_ERROR(F("setName: Receive failure"));
+		callWatchdog();
 		return false;
 	}
 	// Check status
 	delete response;
+	callWatchdog();
 	return true;
 }
 
@@ -159,19 +181,23 @@ bool MiraOne::setAntenna(MiraAntenna antenna)
 	if (!send(message))
 	{
 		delete message;
-		LOG_ERROR(F("commitSettings: Send failure"));
+		MO_LOG_ERROR(F("commitSettings: Send failure"));
+		callWatchdog();
 		return false;
 	}
 	delete message;
+	callWatchdog();
 	MiraOneMessage* response = getNextMessage();
 	if (response == nullptr)
 	{
 		delete response;
-		LOG_ERROR(F("commitSettings: Receive failure"));
+		MO_LOG_ERROR(F("commitSettings: Receive failure"));
+		callWatchdog();
 		return false;
 	}
 	// Check status
 	delete response;
+	callWatchdog();
 	return true;
 }
 
@@ -181,19 +207,23 @@ bool MiraOne::commitSettings()
 	if (!send(message))
 	{
 		delete message;
-		LOG_ERROR(F("commitSettings: Send failure"));
+		MO_LOG_ERROR(F("commitSettings: Send failure"));
+		callWatchdog();
 		return false;
 	}
 	delete message;
+	callWatchdog();
 	MiraOneMessage* response = getNextMessage();
 	if (response == nullptr)
 	{
 		delete response;
-		LOG_ERROR(F("commitSettings: Receive failure"));
+		MO_LOG_ERROR(F("commitSettings: Receive failure"));
+		callWatchdog();
 		return false;
 	}
 	// Check status
 	delete response;
+	callWatchdog();
 	return true;
 }
 
@@ -203,36 +233,42 @@ bool MiraOne::getVersion(VersionInfo& version)
 	if (!send(message))
 	{
 		delete message;
-		LOG_ERROR("Send failure");
+		MO_LOG_ERROR("Send failure");
+		callWatchdog();
 		return false;
 	}
 	delete message;
-	LOG_TRACE("Waiting for response");
+	callWatchdog();
+	MO_LOG_TRACE("Waiting for response");
 
 	// This is the ack message
 	MiraOneMessage* response = getNextMessage();
 	if (!response)
 	{
 		delete response;
-		LOG_ERROR("Receive failure");
+		MO_LOG_ERROR("Receive failure");
+		callWatchdog();
 		return false;
 	}
-	LOG_TRACE("Got response message");
+	MO_LOG_TRACE("Got response message");
 	delete response;
+	callWatchdog();
 
 	// This is the version message
 	response = getNextMessage();
 	if (!response)
 	{
 		delete response;
-		LOG_ERROR("Receive failure");
+		MO_LOG_ERROR("Receive failure");
+		callWatchdog();
 		return false;
 	}	
-	LOG_TRACE("Got reply message");
+	MO_LOG_TRACE("Got reply message");
 	uint8_t* data = response->getData();
 	version.major = *data++;
 	version.minor = *data;
 	delete response;
+	callWatchdog();
 	return true;
 }
 
@@ -242,37 +278,43 @@ bool MiraOne::getEUI64Info(IEEE_EUI64* buffer)
 	if (!send(message))
 	{
 		delete message;
-		LOG_ERROR("Send failure");
+		MO_LOG_ERROR("Send failure");
+		callWatchdog();
 		return false;
 	}
 	delete message;
-	LOG_TRACE("Waiting for response");
+	callWatchdog();
+	MO_LOG_TRACE("Waiting for response");
 
 	// This is the ack message
 	MiraOneMessage* response = getNextMessage();
 	if (!response)
 	{
 		delete response;
-		LOG_ERROR("Receive failure");
+		MO_LOG_ERROR("Receive failure");
+		callWatchdog();
 		return false;
 	}
-	LOG_TRACE("Got response message");
+	MO_LOG_TRACE("Got response message");
 	uint8_t* data = response->getData();
 	memcpy(buffer, data, 8);
 	delete response;
+	callWatchdog();
 
 	// This is the version message
 	response = getNextMessage();
 	if (!response)
 	{
 		delete response;
-		LOG_ERROR("Receive failure");
+		MO_LOG_ERROR("Receive failure");
+		callWatchdog();
 		return false;
 	}	
-	LOG_TRACE("Got reply message");
+	MO_LOG_TRACE("Got reply message");
 	data = response->getData();
 	memcpy(buffer, data, 8);
 	delete response;
+	callWatchdog();
 	return true;	
 }
 
@@ -287,22 +329,26 @@ bool MiraOne::getNetworkStatistics(uint8_t interval)
 	if (!send(message))
 	{
 		delete message;
-		LOG_ERROR("Send failure");
+		MO_LOG_ERROR("Send failure");
+		callWatchdog();
 		return false;
 	}
 	delete message;
-	LOG_TRACE(F("Waiting for response"));
+	callWatchdog();
 
+	MO_LOG_TRACE(F("Waiting for response"));
 	// This is the ack message
 	MiraOneMessage* response = getNextMessage();
 	if (!response)
 	{
 		delete response;
-		LOG_ERROR("Receive failure");
+		MO_LOG_ERROR("Receive failure");
+		callWatchdog();
 		return false;
 	}
-	LOG_TRACE("Got response message");
+	MO_LOG_TRACE("Got response message");
 	delete response;
+	callWatchdog();
 	return true;
 }
 
@@ -313,22 +359,26 @@ bool MiraOne::networkPing(IEEE_EUI64 address)
 	if (!send(message))
 	{
 		delete message;
-		LOG_ERROR("Send failure");
+		MO_LOG_ERROR("Send failure");
+		callWatchdog();
 		return false;
 	}
 	delete message;
-	LOG_TRACE(F("Waiting for response"));
+	callWatchdog();
 
+	MO_LOG_TRACE(F("Waiting for response"));
 	// This is the ack message
 	MiraOneMessage* response = getNextMessage();
 	if (!response || response->getMessageType() != MIRA_MESSAGE_TYPE_ACK)
 	{
 		delete response;
-		LOG_ERROR("Receive failure");
+		MO_LOG_ERROR("Receive failure");
+		callWatchdog();
 		return false;
 	}
-	LOG_TRACE("Got response message");
+	MO_LOG_TRACE("Got response message");
 	delete response;
+	callWatchdog();
 	return true;
 }
 
@@ -344,35 +394,56 @@ bool MiraOne::available()
 bool MiraOne::send(MiraOneMessage* message)
 {
 	message->setMessageIndex(_currentMessageId++);
-	message->dumpToLog();
-	return message->write(_stream, getNextMessageId());
+	message->dumpToLog(_logger);
+	return message->write(_stream, getNextMessageId(), _logger);
+	callWatchdog();
 }
 
 MiraOneMessage* MiraOne::getNextMessage()
 {
 	MiraOneMessage* result = new MiraOneMessage(MESSAGE_DATA_SEND);
-	if (result->read(_stream))
+	if (result->read(_stream, _logger))
 	{
-		result->dumpToLog();
+		result->dumpToLog(_logger);
+		callWatchdog();
 		return result;
 	}
 	delete result;
+	callWatchdog();
 	return nullptr;
 }
 
 bool MiraOne::getNextMessage(MiraOneMessage* result)
 {
-	if (result->read(_stream))
+	if (result->read(_stream, _logger))
 	{
+		callWatchdog();
 #ifdef MIRA_DEBUG		
-		result->dumpToLog();
+		result->dumpToLog(_logger);
 #endif		
+		callWatchdog();
 		return true;
 	}
+	callWatchdog();
 	return false;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Watchdog
+//
+void MiraOne::callWatchdog()
+{
+    if (watchdogcallback != nullptr)
+    {
+        (watchdogcallback)();
+    }
+}
 
+void MiraOne::setWatchdogCallback(WATCHDOG_CALLBACK_SIGNATURE)
+{
+    this->watchdogcallback = watchdogcallback;
+}
 
 
 

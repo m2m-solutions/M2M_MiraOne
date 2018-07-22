@@ -15,8 +15,9 @@
 //
 // Includes
 //
-#include "Arduino.h"
+#include <Arduino.h>
 #include <Stream.h>
+#include <M2M_Logger.h>
 #include "M2M_MiraOneMessage.h"
 
 #define MIRA_NETWORK_ID   42
@@ -26,24 +27,6 @@
 //
 // External defines
 //
-#ifdef MIRA_DEBUG
-#define LOG_ERROR(...) Log.error(__VA_ARGS__)
-#define LOG_INFO(...) Log.info(__VA_ARGS__)
-#define LOG_DEBUG(...) Log.debug(__VA_ARGS__)
-#define LOG_TRACE(...) Log.trace(__VA_ARGS__)
-#define LOG_TRACE_START(...) Log.traceStart(__VA_ARGS__)
-#define LOG_TRACE_PART(...) Log.tracePart(__VA_ARGS__)
-#define LOG_TRACE_END(...) Log.traceEnd(__VA_ARGS__)
-#else
-#define LOG_ERROR(...)
-#define LOG_INFO(...)
-#define LOG_DEBUG(...)
-#define LOG_TRACE(...)
-#define LOG_TRACE_START(...)
-#define LOG_TRACE_PART(...)
-#define LOG_TRACE_END(...)
-#endif
-
 #ifndef NOT_A_PIN
 #define NOT_A_PIN	0
 #endif 
@@ -52,12 +35,38 @@
 //
 // Internal defines
 //
-#define MIRA_BUFFER_SIZE	128 
+#define MIRA_BUFFER_SIZE	128
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Logging defines
+//
+#define MIRA_DEBUG
+
+#ifdef MIRA_DEBUG
+#define MO_LOG_ERROR(...) if (_logger != nullptr) _logger->error(__VA_ARGS__)
+#define MO_LOG_INFO(...) if (_logger != nullptr) _logger->info(__VA_ARGS__)
+#define MO_LOG_DEBUG(...) if (_logger != nullptr) _logger->debug(__VA_ARGS__)
+#define MO_LOG_TRACE(...) if (_logger != nullptr) _logger->trace(__VA_ARGS__)
+#define MO_LOG_TRACE_START(...) if (_logger != nullptr) _logger->traceStart(__VA_ARGS__)
+#define MO_LOG_TRACE_PART(...) if (_logger != nullptr) _logger->tracePart(__VA_ARGS__)
+#define MO_LOG_TRACE_END(...) if (_logger != nullptr) _logger->traceEnd(__VA_ARGS__)
+#else
+#define MO_LOG_ERROR(...)
+#define MO_LOG_INFO(...)
+#define MO_LOG_DEBUG(...)
+#define MO_LOG_TRACE(...)
+#define MO_LOG_TRACE_START(...)
+#define MO_LOG_TRACE_PART(...)
+#define MO_LOG_TRACE_END(...)
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // Class definitions
 //
+#define WATCHDOG_CALLBACK_SIGNATURE void (*watchdogcallback)()
+
 class MiraOne
 {
 public:
@@ -71,6 +80,9 @@ public:
 	IEEE_EUI64 getAddress();
 	void flush();
 	void reset();
+
+	// Logging
+	void setLogger(Logger* logger);
 
 	// Management
 	bool setNetworkCredentials(const uint16_t networkId, const char* aesKey);
@@ -91,17 +103,23 @@ public:
 	MiraOneMessage* getNextMessage();
 	bool getNextMessage(MiraOneMessage* result);
 
+	// Watchdog
+	void setWatchdogCallback(WATCHDOG_CALLBACK_SIGNATURE);
+
 protected:
+    void callWatchdog();
+
+	Logger* _logger = nullptr;
 	Stream* _stream;
 	uint8_t _messageBuffer[255];
 	uint16_t _networkId;
 	const char* _aesKey;
 	const char* _name;
-	IEEE_EUI64 _address;
 	bool _coordinator;
 	MiraAntenna _antenna;
 	uint8_t _resetPin;
-	uint8_t _currentMessageId;	
+	uint8_t _currentMessageId;
+	WATCHDOG_CALLBACK_SIGNATURE;
 };
 
 #endif

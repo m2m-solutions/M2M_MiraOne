@@ -29,7 +29,8 @@
 //
 // Includes
 //
-#include "Arduino.h"
+#include <Arduino.h>
+#include <M2M_Logger.h>
 #include "M2M_MiraOneMessage.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -88,6 +89,30 @@
 #define MESSAGE_SETTINGS_COMMIT				0x08, 0x0a
 
 #define MESSAGE_GET_EUI64INFO				0x01, 0x09
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Logging defines
+//
+#define MIRA_DEBUG
+
+#ifdef MIRA_DEBUG
+#define MOM_LOG_ERROR(...) if (logger != nullptr) logger->error(__VA_ARGS__)
+#define MOM_LOG_INFO(...) if (logger != nullptr) logger->info(__VA_ARGS__)
+#define MOM_LOG_DEBUG(...) if (logger != nullptr) logger->debug(__VA_ARGS__)
+#define MOM_LOG_TRACE(...) if (logger != nullptr) logger->trace(__VA_ARGS__)
+#define MOM_LOG_TRACE_START(...) if (logger != nullptr) logger->traceStart(__VA_ARGS__)
+#define MOM_LOG_TRACE_PART(...) if (logger != nullptr) logger->tracePart(__VA_ARGS__)
+#define MOM_LOG_TRACE_END(...) if (logger != nullptr) logger->traceEnd(__VA_ARGS__)
+#else
+#define MOM_LOG_ERROR(...)
+#define MOM_LOG_INFO(...)
+#define MOM_LOG_DEBUG(...)
+#define MOM_LOG_TRACE(...)
+#define MOM_LOG_TRACE_START(...)
+#define MOM_LOG_TRACE_PART(...)
+#define MOM_LOG_TRACE_END(...)
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -164,18 +189,18 @@ public:
 	void setMessageIndex(uint8_t index);
 
 	// Message handling
-	bool write(Stream* stream, uint8_t messageId);
-	bool read(Stream* stream);
-	void dumpToLog();
+	bool write(Stream* stream, uint8_t messageId, Logger* logger);
+	bool read(Stream* stream, Logger* logger);
+	void dumpToLog(Logger* logger);
 
 	// CRC - Not used here
 	static uint16_t crc16Kermit(char *data, uint16_t len);
 	static uint16_t addToCrc(uint16_t& currentValue, uint8_t value);
 
-private:
-	// Private members
-	//uint8_t[128] _buffer;
+	// Logging
+	static void setLogger(Logger* logger);
 
+private:
 	uint8_t _messageHeader = 0;
 	uint8_t _messageType = 0;
 	uint8_t _messageIndex = 0;
@@ -185,8 +210,8 @@ private:
 	uint16_t _crc = 0;
 
 	// Private functions
-	bool writeSTC(Stream* stream);
-	bool writeEscapedData(Stream* stream, uint8_t data, uint16_t& crc);
+	void writeSTC(Stream* stream, Logger* logger);
+	void writeEscapedData(Stream* stream, uint8_t data, uint16_t& crc, Logger* logger);
 };
 
 #endif
