@@ -10,3 +10,7 @@ Copyright (c) 2018, M2M Solutions AB. All rights reserved.
 
 This library is open source. It is released under the [MIT License](LICENSE.txt). 
 Please see the included LICENSE.txt file for more information.
+
+# Dependencies
+
+Uses the M2M_Logger library.
