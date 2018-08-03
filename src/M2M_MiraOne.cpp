@@ -28,6 +28,7 @@ MiraOne::MiraOne(Stream& stream, uint8_t resetPin, MiraAntenna antenna)
 	if (resetPin != NOT_A_PIN)
 	{
 		pinMode(resetPin, OUTPUT);
+		digitalWrite(resetPin, HIGH);
 	}
 }
 
@@ -37,7 +38,6 @@ MiraOne::MiraOne(Stream& stream, uint8_t resetPin, MiraAntenna antenna)
 //
 void MiraOne::begin(bool root, const char* name, uint16_t networkId, const char* aesKey)
 {
-	_logger->info("WTF....");
 	_networkId = networkId;
 	_aesKey = aesKey;
 	_name = name;
@@ -78,6 +78,7 @@ void MiraOne::reset()
 	digitalWrite(_resetPin, LOW);
 	delay(200);
 	digitalWrite(_resetPin, HIGH);
+	delay(500);
 	callWatchdog();
 }
 
