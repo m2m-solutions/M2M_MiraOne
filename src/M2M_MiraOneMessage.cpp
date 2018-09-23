@@ -430,6 +430,10 @@ bool MiraOneMessage::read(Stream* stream, Logger* logger)
 
 void MiraOneMessage::dumpToLog(Logger* logger)
 {
+	if (logger->getLogLevel() != LogLevel::Trace )
+	{
+		return;
+	}
 	MOM_LOG_TRACE(F("======== Mira message ========="));
 	MOM_LOG_TRACE_START(F("Message header  : 0x%02x (Response: "), _messageHeader);
 	if (isResponse())

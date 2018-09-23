@@ -97,7 +97,7 @@ void MiraOne::setLogger(Logger* logger)
 //
 bool MiraOne::setNetworkCredentials(const uint16_t networkId, const char* aesKey)
 {
-	MO_LOG_TRACE(F("setNetworkCredentials()"));
+	MO_LOG_TRACE("Setting network credentials");
 	MiraOneMessage* message = MiraOneMessage::getSetCredentialsMessage(networkId, aesKey);
 	if (!send(message))
 	{
