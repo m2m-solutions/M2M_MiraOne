@@ -20,8 +20,8 @@
 #include <M2M_Logger.h>
 #include "M2M_MiraOneMessage.h"
 
-#define MIRA_NETWORK_ID   42
-#define MIRA_AES_KEY   "o#VDMJhtp0N2ZY&s"
+#define M2M_MIRA_NETWORK_ID   42
+#define M2M_MIRA_AES_KEY   "o#VDMJhtp0N2ZY&s"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -74,7 +74,7 @@ public:
 	MiraOne(Stream& port, uint8_t resetPin = NOT_A_PIN, MiraAntenna antenna = MiraAntenna::internal);
 
 	// Infrastructure
-	void begin(bool root, const char* name, uint16_t networkId = MIRA_NETWORK_ID, const char* aesKey = MIRA_AES_KEY);
+	void begin(bool root, const char* name, uint16_t networkId = M2M_MIRA_NETWORK_ID, const char* aesKey = M2M_MIRA_AES_KEY);
 	void update();
 	uint8_t getNextMessageId();
 	IEEE_EUI64 getAddress();

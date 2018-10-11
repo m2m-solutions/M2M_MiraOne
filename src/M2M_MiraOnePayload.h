@@ -42,7 +42,6 @@ struct __attribute__((packed)) MiraOnePayloadv1
 {
 	uint8_t payloadVersion = 1;
 	IEEE_EUI64 miraAddress;
-	char serialNumber[12];
 	uint8_t dataLength;
 	uint8_t data[];
 	uint8_t getLength() 
@@ -57,7 +56,6 @@ struct __attribute__((packed)) MiraOnePayloadv1
 struct __attribute__((packed)) MiraOnePayloadv2
 {
 	uint8_t payloadVersion = 2;
-	char serialNumber[12];
 	uint8_t dataLength;
 	uint8_t data[];
 	uint8_t getLength() 
